@@ -13,7 +13,7 @@ export default function Index() {
 
     const fetchBooks = async () => {
         const res = await axios.get('/api/books');
-        setBooks(res.data);
+        setBooks(res.data.payload || []);
     };
 
     const submit = async (e) => {
