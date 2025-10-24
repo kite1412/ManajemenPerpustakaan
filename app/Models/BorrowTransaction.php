@@ -31,9 +31,9 @@ class BorrowTransaction extends Model
     /**
      * Get the book that was borrowed
      */
-    public function books()
+    public function book_copies()
     {
-        return $this->belongsTo(Book::class, 'book_id');
+        return $this->belongsTo(BookCopy::class, 'book_id');
     }
 
     public function book_losts(){

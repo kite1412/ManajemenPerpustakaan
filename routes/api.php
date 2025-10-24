@@ -18,6 +18,7 @@ Route::get('/register', function () {
 Route::post('/register', [UserController::class, 'register']);
 // Also accept POST /users for registration (RESTful)
 Route::post('/users', [UserController::class, 'register']);
+Route::get('/members', [UserController::class, 'getMember']);
 Route::post('/login', [UserController::class, 'login']);
 // Logout protected
 Route::post('/logout', [UserController::class, 'logout'])->middleware('auth:sanctum');
@@ -39,7 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
 	Route::post('/categories', [CategoryController::class, 'store']);
 
 	// Book copies: status updates by authenticated users (admins ideally)
-	Route::patch('/book_copies', [BookCopyController::class, 'updatedStatus'])->middleware('role:ADMIN');
+	Route::patch('/book_copies/{id}', [BookCopyController::class, 'updateStatus'])->middleware('role:ADMIN');
 
 	// Transactions: create and return are authenticated
 	Route::post('/transactions', [BorrowTransactionController::class, 'store']);

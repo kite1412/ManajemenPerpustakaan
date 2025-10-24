@@ -24,7 +24,7 @@ class CategoryController extends Controller
             'success' => true,
             'statusCode' => '200',
             'message' => 'Data GET Successfully',
-            'payload' => $$categories
+            'payload' => $categories
         ],200);
        }catch(\Exception $e){
         return response()->json([
@@ -38,10 +38,10 @@ class CategoryController extends Controller
 
     public function store(Request $request){
        try{
-         $request->validate([
+         $validated = $request->validate([
             'name' => 'string|max:100|required'
         ]);
-        $category = Category::create($request);
+        $category = Category::create($validated);
         return response()->json([
             'success' => true,
             'statusCode' => '200',

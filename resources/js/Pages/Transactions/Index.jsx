@@ -1,16 +1,112 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useEffect, useState } from 'react';
 
 export default function Index(){
     const [txs, setTxs] = useState([]);
-    useEffect(()=>{ fetch(); }, []);
-    const fetch = async ()=>{
+    const [users, setUsers] = useState([]);
+    // books will hold one AVAILABLE copy per book { copyId, unique_code, bookId, title, ... }
+    const [books, setBooks] = useState([]);
+
+    // form state
+    const [userId, setUserId] = useState('');
+    const [bookId, setBookId] = useState('');
+    const [borrowDate, setBorrowDate] = useState('');
+    const [dueDate, setDueDate] = useState('');
+    const [returnDate, setReturnDate] = useState('');
+
+    useEffect(()=>{
+        fetchTxs();
+        fetchUsers();
+        fetchAvailableCopies();
+    }, []);
+
+    const fetchTxs = async ()=>{
         const res = await axios.get('/api/transactions');
-        // API returns an object with payload property; fall back to data if plain array
         const payload = (res.data && res.data.payload) ? res.data.payload : res.data;
         setTxs(Array.isArray(payload) ? payload : []);
+    };
+
+    const fetchUsers = async ()=>{
+        try{
+            const res = await axios.get('/api/members');
+            const payload = (res.data && res.data.payload) ? res.data.payload : res.data;
+            setUsers(Array.isArray(payload) ? payload : []);
+        }catch(e){
+            setUsers([]);
+        }
+    };
+    // Fetch available book copies and pick one copy per book (to avoid duplicate book options)
+    const fetchAvailableCopies = async ()=>{
+        try{
+            // request AVAILABLE copies; backend may expect uppercase
+            const res = await axios.get('/api/book_copies?status=AVAILABLE');
+            const payload = (res.data && res.data.payload) ? res.data.payload : res.data;
+            const copies = Array.isArray(payload) ? payload : [];
+
+            // build map of bookId -> first available copy
+            const map = new Map();
+            copies.forEach(copy => {
+                const bookObj = copy.books || copy.book || null; // handle possible keys
+                const bookId = bookObj ? bookObj.id : copy.book_id;
+                if (!map.has(bookId)) {
+                    map.set(bookId, {
+                        copyId: copy.id,
+                        unique_code: copy.unique_code,
+                        bookId: bookId,
+                        title: bookObj ? bookObj.title : `#${bookId}`,
+                        author: bookObj ? bookObj.author : null,
+                        publisher: bookObj ? bookObj.publisher : null,
+                    });
+                }
+            });
+
+            setBooks(Array.from(map.values()));
+        }catch(e){
+            setBooks([]);
+        }
+    };
+
+    const submit = async (e)=>{
+        e.preventDefault();
+        // Basic validation
+        if(!userId || !bookId || !borrowDate || !dueDate){
+            alert('Please fill required fields: user, book, borrow date, due date.');
+            return;
+        }
+        // find the selected available copy
+        const selectedCopy = books.find(b => String(b.copyId) === String(bookId));
+        if(!selectedCopy){
+            alert('Selected book copy not found or no longer available. Please choose another.');
+            fetchAvailableCopies();
+            return;
+        }
+
+        try{
+            const res1 = await axios.post('/api/transactions', {
+                user_id: userId,
+                book_id: selectedCopy.bookId,
+                borrow_date: borrowDate,
+                due_date: dueDate,
+                return_date: returnDate || null,
+            });
+            console.log('Transaction created:', res1.data);
+
+            // reset
+            setUserId('');
+            setBookId('');
+            setBorrowDate('');
+            setDueDate('');
+            setReturnDate('');
+
+            // refresh lists
+            fetchTxs();
+            fetchAvailableCopies();
+        }catch(err){
+            console.error(err);
+            alert('Failed to create transaction or update book copy. See console for details.');
+        }
     };
 
     return (
@@ -19,9 +115,73 @@ export default function Index(){
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
                     <h1 className="text-2xl font-bold mb-4">Transactions</h1>
-                    <ul>
-                        {txs.map(t=> <li key={t.id} className="py-2 border-b">{t.id} - {t.status}</li>)}
-                    </ul>
+
+                    {/* Create transaction form */}
+                    <form onSubmit={submit} className="mb-6 grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-1">User</label>
+                            <select className="w-full border p-2" value={userId} onChange={(e)=>setUserId(e.target.value)}>
+                                <option value="">Select user</option>
+                                {users.map(u=> <option key={u.id} value={u.id}>{u.name || u.email || `#${u.id}`}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-1">Book (available copy)</label>
+                            <select className="w-full border p-2" value={bookId} onChange={(e)=>setBookId(e.target.value)}>
+                                <option value="">Select book</option>
+                                {books.map(b=> (
+                                    <option key={b.copyId} value={b.copyId}>{b.title} — {b.unique_code}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Borrow Date</label>
+                            <input type="date" className="border p-2 w-full" value={borrowDate} onChange={(e)=>setBorrowDate(e.target.value)} />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Due Date</label>
+                            <input type="date" className="border p-2 w-full" value={dueDate} onChange={(e)=>setDueDate(e.target.value)} />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Return Date (optional)</label>
+                            <input type="date" className="border p-2 w-full" value={returnDate} onChange={(e)=>setReturnDate(e.target.value)} />
+                        </div>
+
+                        <div className="md:col-span-6">
+                            <button className="px-4 py-2 rounded bg-brand text-gray-800">Create Transaction</button>
+                        </div>
+                    </form>
+
+                    {/* Transactions grid */}
+                    <div className="overflow-x-auto">
+                        <div className="grid grid-cols-6 gap-4 font-semibold border-b pb-2 text-sm">
+                            <div>ID</div>
+                            <div>User</div>
+                            <div>Book</div>
+                            <div>Borrow Date</div>
+                            <div>Due Date</div>
+                            <div>Return Date</div>
+                        </div>
+
+                        {txs.length === 0 ? (
+                            <div className="py-4 text-sm">No transactions yet.</div>
+                        ) : (
+                            txs.map(t=> (
+                                <div key={t.id} className="grid grid-cols-6 gap-4 items-center py-2 border-b text-sm">
+                                    <div>{t.id}</div>
+                                    <div className="truncate">{t.user?.name ?? t.user_name ?? `#${t.user_id}`}</div>
+                                    <div className="truncate">{t.book?.title ?? t.book_title ?? `#${t.book_id}`}</div>
+                                    <div>{t.borrow_date}</div>
+                                    <div>{t.due_date}</div>
+                                    <div>{t.return_date || '-'}</div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
         </AuthenticatedLayout>

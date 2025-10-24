@@ -14,7 +14,7 @@ class BorrowTransactionController extends Controller
     public function index()
     {
         try {
-            $transactions = BorrowTransaction::with(['user', 'bookCopy'])->get();
+            $transactions = BorrowTransaction::with(['users', 'book_copies'])->get();
 
             return response()->json([
                 'success' => true,
