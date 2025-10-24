@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\BookLost;
+use App\Models\BookCopy;
+use App\Models\BorrowTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -11,7 +13,7 @@ class BookLostController extends Controller
     public function index()
     {
         try {
-            $reports = BookLost::with(['bookCopy', 'user', 'verifiedBy', 'penalty', 'transaction'])->get();
+            $reports = BookLost::with(['book_copies', 'user', 'penalty', 'transactions', "verified_by"])->get();
 
             return response()->json([
                 'success' => true,
@@ -32,25 +34,49 @@ class BookLostController extends Controller
     public function store(Request $request)
     {
         try {
+            // transaction_id is required; copy_id and user_id will be derived from the transaction
             $validated = $request->validate([
-                'copy_id' => 'required|integer|exists:book_copies,id',
-                'user_id' => 'required|integer|exists:users,id',
-                'transaction_id' => 'nullable|integer|exists:borrow_transactions,id',
+                'transaction_id' => 'required|integer|exists:borrow_transactions,id',
                 'report_date' => 'required|date',
                 'verified_by' => 'nullable|integer|exists:users,id',
-                'penalty_id' => 'nullable|integer|exists:penalties,id',
-                'status' => ['required', Rule::in(['REPORTED', 'PAID', 'VERIFIED'])],
+                'penalty_id' => 'required|integer|exists:penalties,id',
+                'report_status' => ['required', Rule::in(['REPORTED', 'PAID', 'VERIFIED'])],
             ]);
 
-            $bookCopy = \App\Models\BookCopy::find($validated['copy_id']);
-
-            if (!$bookCopy) {
-            return response()->json([
-                'success' => false,
-                'statusCode' => 404,
-                'message' => 'Book Copy Not Found',
+            // derive copy_id and user_id from the borrow transaction
+            $tx = BorrowTransaction::find($validated['transaction_id']);
+            if (!$tx) {
+                return response()->json([
+                    'success' => false,
+                    'statusCode' => 422,
+                    'message' => 'Invalid transaction_id; cannot derive copy_id/user_id',
                 ]);
             }
+
+            $copyId = $tx->book_id;
+            $userId = $tx->user_id;
+
+            if (!$copyId || !$userId) {
+                return response()->json([
+                    'success' => false,
+                    'statusCode' => 422,
+                    'message' => 'Transaction does not contain book_id or user_id to derive required fields',
+                ]);
+            }
+
+            $bookCopy = BookCopy::find($copyId);
+            if (!$bookCopy) {
+                return response()->json([
+                    'success' => false,
+                    'statusCode' => 404,
+                    'message' => 'Book Copy Not Found',
+                ]);
+            }
+
+            // populate validated payload with derived fields
+            $validated['copy_id'] = $copyId;
+            $validated['user_id'] = $userId;
+
             $report = BookLost::create($validated);
 
             $bookCopy->update([

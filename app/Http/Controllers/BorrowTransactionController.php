@@ -63,7 +63,8 @@ class BorrowTransactionController extends Controller
             $transaction = BorrowTransaction::create($validated);
 
             // Update status book copy menjadi BORROWED
-            $bookCopy->update(['book_status' => 'BORROWED']);
+            $bookCopy->book_status = 'BORROWED';
+            $bookCopy->save();
 
             DB::commit();
 

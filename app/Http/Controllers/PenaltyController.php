@@ -15,7 +15,7 @@ class PenaltyController extends Controller
     public function index()
     {
         try {
-            $penalties = Penalty::with(['transaction.bookCopy', 'transaction.user'])->get();
+            $penalties = Penalty::with(['borrow_transactions'])->get();
 
             return response()->json([
                 'success' => true,

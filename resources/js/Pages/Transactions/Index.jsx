@@ -75,18 +75,11 @@ export default function Index(){
             alert('Please fill required fields: user, book, borrow date, due date.');
             return;
         }
-        // find the selected available copy
-        const selectedCopy = books.find(b => String(b.copyId) === String(bookId));
-        if(!selectedCopy){
-            alert('Selected book copy not found or no longer available. Please choose another.');
-            fetchAvailableCopies();
-            return;
-        }
 
         try{
             const res1 = await axios.post('/api/transactions', {
                 user_id: userId,
-                book_id: selectedCopy.bookId,
+                book_id: bookId,
                 borrow_date: borrowDate,
                 due_date: dueDate,
                 return_date: returnDate || null,

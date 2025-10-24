@@ -47,9 +47,9 @@ Route::middleware('auth:sanctum')->group(function () {
 	Route::patch('/transactions/{id}/return', [BorrowTransactionController::class, 'updateReturn']);
 
 	// Book lost reporting by authenticated users; status update and delete by admin
-	Route::post('/book-losts', [BookLostController::class, 'store']);
-	Route::put('/book-losts/{id}/status', [BookLostController::class, 'updateStatus'])->middleware('role:ADMIN');
-	Route::delete('/book-losts/{id}', [BookLostController::class, 'destroy'])->middleware('role:ADMIN');
+	Route::post('/book_losts', [BookLostController::class, 'store']);
+	Route::put('/book_losts/{id}/status', [BookLostController::class, 'updateStatus'])->middleware('role:ADMIN');
+	Route::delete('/book_losts/{id}', [BookLostController::class, 'destroy'])->middleware('role:ADMIN');
 
 	// Penalties: create/update/delete require auth; destructive ops require admin
 	Route::post('/penalties', [PenaltyController::class, 'store']);
@@ -68,8 +68,8 @@ Route::middleware('auth:sanctum')->group(function () {
 	Route::get('/transactions/{id}', [BorrowTransactionController::class, 'show']);
 
 	//route BookLost
-	Route::get('/book-losts', [BookLostController::class, 'index']);
-	Route::get('/book-losts/{id}', [BookLostController::class, 'show']);
+	Route::get('/book_losts', [BookLostController::class, 'index']);
+	Route::get('/book_losts/{id}', [BookLostController::class, 'show']);
 
 
 	//route Penalties

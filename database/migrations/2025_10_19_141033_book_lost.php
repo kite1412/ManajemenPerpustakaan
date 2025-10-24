@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('transaction_id')->constrained('borrow_transactions')->onDelete('cascade');
             $table->date('report_date');
-            $table->foreignId('verified_by')->constrained('users')->onDelete('cascade');
+            $table->foreignId('verified_by')->nullable()->constrained('users')->onDelete('cascade');
             $table->foreignId('penalty_id')->constrained('penalties')->onDelete('cascade');
             $table->enum('report_status', ['REPORTED', 'PAID', 'VERIFIED']);
             $table->timestamps();
