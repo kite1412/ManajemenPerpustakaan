@@ -112,21 +112,22 @@ class BookController extends Controller
         public function updateData(Request $request, $id){
         try{
             $book = Book::find($id);
-            if($book->isEmpty()){
-                return response()->json([
-                    'success' => false,
-                    'statusCode' => '404',
-                    'message' => 'Book Not Found'
-                ]);
-            }
+                if(!$book){
+                    return response()->json([
+                        'success' => false,
+                        'statusCode' => '404',
+                        'message' => 'Book Not Found'
+                    ]);
+                }
 
-        $validated = $request->validate([
-        'title' => 'required|string|max:100',
-        'author' => 'required|string|max:100',
-        'publisher' => 'required|string|max:100',
-        'year_publish' => 'required|digits:4|integer',
-        'img' => 'nullable|string',
-        ]);
+            // Allow partial updates: each field is optional for PATCH semantics
+            $validated = $request->validate([
+            'title' => 'sometimes|string|max:100',
+            'author' => 'sometimes|string|max:100',
+            'publisher' => 'sometimes|string|max:100',
+            'year_publish' => 'sometimes|digits:4|integer',
+            'img' => 'sometimes|nullable|string',
+            ]);
 
         $book->update($validated);
 

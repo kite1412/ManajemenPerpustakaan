@@ -17,6 +17,13 @@ export default function Index(){
     const [penaltyAmount, setPenaltyAmount] = useState('');
     const [status, setStatus] = useState('REPORTED');
     const [loading, setLoading] = useState(false);
+    // penalty hover preview cache and state
+    const [hoveredPenaltyId, setHoveredPenaltyId] = useState(null);
+    const [penaltyCache, setPenaltyCache] = useState({});
+
+    // transaction hover preview cache and state
+    const [hoveredTransactionId, setHoveredTransactionId] = useState(null);
+    const [transactionCache, setTransactionCache] = useState({});
 
     useEffect(()=>{ fetchAll(); }, []);
 
@@ -36,7 +43,8 @@ export default function Index(){
 
     const fetchUsers = async ()=>{
         try{
-            const res = await axios.get('/api/members');
+            // fetch admins for verification selection
+            const res = await axios.get('/api/admins');
             const payload = (res.data && res.data.payload) ? res.data.payload : res.data;
             setUsers(Array.isArray(payload) ? payload : []);
         }catch(e){ setUsers([]); }
@@ -99,6 +107,99 @@ export default function Index(){
             alert('Error creating penalty or book lost. See console for details.');
         }finally{
             setLoading(false);
+        }
+    };
+
+    const deleteReport = async (id) => {
+        if(!confirm('Delete this book lost report?')) return;
+        try{
+            await axios.delete(`/api/book_losts/${id}`);
+            fetchAll();
+        }catch(err){
+            console.error(err);
+            alert('Failed to delete report');
+        }
+    };
+
+    const fetchPenaltyDetail = async (id) => {
+        if(!id) return null;
+        // already cached
+        if(penaltyCache[id]) return penaltyCache[id];
+        try{
+            const res = await axios.get(`/api/penalties/${id}`);
+            const payload = (res.data && res.data.payload) ? res.data.payload : res.data;
+            console.log('Fetched penalty detail:', payload);
+            setPenaltyCache(prev=> ({ ...prev, [id]: payload }));
+            return payload;
+        }catch(err){
+            setPenaltyCache(prev=> ({ ...prev, [id]: { error: true } }));
+            return { error: true };
+        }
+    };
+
+    const onHoverPenalty = async (id) => {
+        if(!id) return;
+        setHoveredPenaltyId(id);
+        await fetchPenaltyDetail(id);
+    };
+
+    const onLeavePenalty = () => {
+        setHoveredPenaltyId(null);
+    };
+
+    const fetchTransactionDetail = async (id) => {
+        if(!id) return null;
+        if(transactionCache[id]) return transactionCache[id];
+        try{
+            const res = await axios.get(`/api/transactions/${id}`);
+            const payload = (res.data && res.data.payload) ? res.data.payload : res.data;
+            console.log('Fetched transaction detail:', payload);
+            setTransactionCache(prev=> ({ ...prev, [id]: payload }));
+            return payload;
+        }catch(err){
+            setTransactionCache(prev=> ({ ...prev, [id]: { error: true } }));
+            return { error: true };
+        }
+    };
+
+    const onHoverTransaction = async (id) => {
+        if(!id) return;
+        setHoveredTransactionId(id);
+        await fetchTransactionDetail(id);
+    };
+
+    const onLeaveTransaction = () => {
+        setHoveredTransactionId(null);
+    };
+
+    // status editor state
+    const [editingStatusId, setEditingStatusId] = useState(null);
+    const [statusValue, setStatusValue] = useState('REPORTED');
+    const [statusVerifiedBy, setStatusVerifiedBy] = useState('');
+
+    const startEditStatus = (item) => {
+        setEditingStatusId(item.id);
+        setStatusValue(item.report_status ?? item.status ?? 'REPORTED');
+        setStatusVerifiedBy(item.verified_by ?? '');
+    };
+
+    const cancelEditStatus = ()=>{
+        setEditingStatusId(null);
+        setStatusValue('REPORTED');
+        setStatusVerifiedBy('');
+    };
+
+    const saveStatus = async (id) => {
+        try{
+            await axios.put(`/api/book_losts/${id}/status`, {
+                report_status: statusValue,
+                verified_by: statusVerifiedBy || null,
+            });
+            cancelEditStatus();
+            fetchAll();
+        }catch(err){
+            console.error(err);
+            alert('Failed to update status');
         }
     };
 
@@ -173,12 +274,112 @@ export default function Index(){
                             items.map(i=> (
                                 <div key={i.id} className="grid grid-cols-7 gap-4 items-center py-2 border-b text-sm">
                                     <div>{i.id}</div>
-                                    <div className="truncate">{i.copy?.unique_code ?? i.copy_unique_code ?? i.copy_id}</div>
+                                    <div className="truncate">
+                                        {(() => {
+                                            const tId = i.transaction_id ?? i.transaction?.id ?? null;
+                                            const ccode = i.copy?.unique_code ?? i.copy_unique_code ?? i.copy_id;
+                                            const tdata = transactionCache[tId];
+                                            return (
+                                                <div className="relative inline-block" onMouseEnter={()=>tId && onHoverTransaction(tId)} onMouseLeave={onLeaveTransaction}>
+                                                    {tId ? (
+                                                        <div>
+                                                            <span className="underline cursor-pointer mr-2">#{tId}</span>
+                                                            <div className="text-xs text-gray-500 truncate">{ccode}</div>
+
+                                                            {hoveredTransactionId === tId && (
+                                                                <div className="mt-1 w-80 p-2 bg-white border rounded shadow text-xs z-20">
+                                                                    {tdata ? (
+                                                                        tdata.error ? (
+                                                                            <div className="text-red-600">Failed to load transaction</div>
+                                                                        ) : (
+                                                                            <div className="space-y-1">
+                                                                                {
+                                                                                    (() => {
+                                                                                        // transaction payloads sometimes nest under `users` and `book_copies`
+                                                                                        const bookInfo = tdata.book ?? tdata.book_copies ?? tdata.book_copy ?? null;
+                                                                                        const userInfo = tdata.user ?? tdata.users ?? tdata.users ?? null;
+                                                                                        return (
+                                                                                            <div><strong>Book:</strong> {bookInfo ? (bookInfo.title ?? (bookInfo.unique_code ? `${bookInfo.unique_code} (book #${bookInfo.book_id ?? bookInfo.id ?? '-'})` : `#${bookInfo.book_id ?? bookInfo.id ?? '-'}`)) : `#${tdata.book_id ?? '-'}`}</div>
+                                                                                        );
+                                                                                    })()
+                                                                                }
+                                                                                <div><strong>Member:</strong> { (tdata.user?.name ?? tdata.users?.name ?? tdata.users?.username ?? tdata.user_name ?? `#${tdata.user_id ?? (tdata.users?.id ?? '-')}`) }</div>
+                                                                                <div><strong>Borrowed:</strong> {tdata.borrow_date ?? tdata.created_at ?? '-'}</div>
+                                                                                <div><strong>Due:</strong> {tdata.due_date ?? '-'}</div>
+                                                                                <div><strong>Returned:</strong> {tdata.return_date ?? '-'}</div>
+                                                                            </div>
+                                                                        )
+                                                                    ) : (
+                                                                        <div>Loading…</div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-xs text-gray-500">{ccode}</div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
                                     <div className="truncate">{i.user?.name ?? i.user_name ?? i.user_id}</div>
-                                    <div>#{i.transaction_id}</div>
+                                    <div>
+                                        {/** Show penalty id (hover to preview). The API may place penalty under `penalty` or `penalty_id` */}
+                                        {(() => {
+                                            const pId = i.penalty?.id ?? i.penalty_id ?? null;
+                                            if(!pId) return <span className="text-gray-500">-</span>;
+                                            const pdata = penaltyCache[pId];
+                                            return (
+                                                <div className="relative inline-block" onMouseEnter={()=>onHoverPenalty(pId)} onMouseLeave={onLeavePenalty}>
+                                                    <span className="underline cursor-pointer">#{pId}</span>
+
+                                                    {hoveredPenaltyId === pId && (
+                                                        <div className="mt-1 w-72 p-2 bg-white border rounded shadow text-xs z-20">
+                                                            {pdata ? (
+                                                                pdata.error ? (
+                                                                    <div className="text-red-600">Failed to load penalty</div>
+                                                                ) : (
+                                                                    <div className="space-y-1">
+                                                                        <div><strong>Amount:</strong> {pdata.amount ?? pdata.total ?? '-'}</div>
+                                                                        <div><strong>Transaction:</strong> #{pdata.transaction_id ?? pdata.borrow_transaction_id ?? '-'}</div>
+                                                                        <div><strong>Created:</strong> {pdata.created_at ?? pdata.createdAt ?? '-'}</div>
+                                                                        {pdata.note && <div className="truncate"><strong>Note:</strong> {pdata.note}</div>}
+                                                                    </div>
+                                                                )
+                                                            ) : (
+                                                                <div>Loading…</div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
                                     <div>{i.report_date}</div>
                                     <div>{i.penalty?.amount ?? i.penalty_amount ?? '-'}</div>
-                                    <div>{i.report_status ?? i.status ?? i.status}</div>
+                                    <div>
+                                        {editingStatusId === i.id ? (
+                                            <div className="flex items-center gap-2">
+                                                <select className="border p-1 text-sm" value={statusValue} onChange={(e)=>setStatusValue(e.target.value)}>
+                                                    <option value="REPORTED">REPORTED</option>
+                                                    <option value="PAID">PAID</option>
+                                                    <option value="VERIFIED">VERIFIED</option>
+                                                </select>
+                                                <select className="border p-1 text-sm" value={statusVerifiedBy} onChange={(e)=>setStatusVerifiedBy(e.target.value)}>
+                                                    <option value="">None</option>
+                                                    {users.map(u=> <option key={u.id} value={u.id}>{u.name ?? u.email ?? `#${u.id}`}</option>)}
+                                                </select>
+                                                <button type="button" onClick={()=>saveStatus(i.id)} className="px-2 py-1 bg-green-500 text-white rounded text-sm">Save</button>
+                                                <button type="button" onClick={cancelEditStatus} className="px-2 py-1 bg-gray-300 text-gray-800 rounded text-sm">Cancel</button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <div>{i.report_status ?? i.status ?? i.status}</div>
+                                                <button type="button" onClick={()=>startEditStatus(i)} className="px-2 py-1 bg-yellow-200 text-gray-800 rounded text-sm">Edit Status</button>
+                                                <button type="button" onClick={()=>deleteReport(i.id)} className="px-2 py-1 bg-red-500 text-white rounded text-sm">Delete</button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))
                         )}

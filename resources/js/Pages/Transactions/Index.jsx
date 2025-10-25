@@ -15,6 +15,8 @@ export default function Index(){
     const [borrowDate, setBorrowDate] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [returnDate, setReturnDate] = useState('');
+    const [editingReturnId, setEditingReturnId] = useState(null);
+    const [returnDateValue, setReturnDateValue] = useState('');
 
     useEffect(()=>{
         fetchTxs();
@@ -102,6 +104,32 @@ export default function Index(){
         }
     };
 
+    const startEditReturn = (tx) => {
+        setEditingReturnId(tx.id);
+        setReturnDateValue(tx.return_date ?? '');
+    };
+
+    const cancelEditReturn = () => {
+        setEditingReturnId(null);
+        setReturnDateValue('');
+    };
+
+    const saveReturnDate = async (id) => {
+        if(!returnDateValue){
+            alert('Please select a return date');
+            return;
+        }
+        try{
+            await axios.patch(`/api/transactions/${id}/return`, { return_date: returnDateValue });
+            cancelEditReturn();
+            fetchTxs();
+            fetchAvailableCopies();
+        }catch(err){
+            console.error(err);
+            alert('Failed to update return date');
+        }
+    };
+
     return (
         <AuthenticatedLayout>
             <Head title="Transactions" />
@@ -170,7 +198,20 @@ export default function Index(){
                                     <div className="truncate">{t.book?.title ?? t.book_title ?? `#${t.book_id}`}</div>
                                     <div>{t.borrow_date}</div>
                                     <div>{t.due_date}</div>
-                                    <div>{t.return_date || '-'}</div>
+                                    <div>
+                                        {editingReturnId === t.id ? (
+                                            <div className="flex items-center gap-2">
+                                                <input type="date" className="border p-1 text-sm" value={returnDateValue} onChange={(e)=>setReturnDateValue(e.target.value)} />
+                                                <button type="button" onClick={()=>saveReturnDate(t.id)} className="px-2 py-1 bg-green-500 text-white rounded text-sm">Save</button>
+                                                <button type="button" onClick={cancelEditReturn} className="px-2 py-1 bg-gray-300 text-gray-800 rounded text-sm">Cancel</button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <div>{t.return_date || '-'}</div>
+                                                <button type="button" onClick={()=>startEditReturn(t)} className="px-2 py-1 bg-blue-200 text-gray-800 rounded text-sm">Set/Update</button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))
                         )}

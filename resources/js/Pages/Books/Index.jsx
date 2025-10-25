@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useEffect, useState } from 'react';
 
 export default function Index() {
     const [books, setBooks] = useState([]);
@@ -10,6 +10,8 @@ export default function Index() {
     const [publisher, setPublisher] = useState('');
     const [year_publish, setYearPublish] = useState('');
     const [stock, setStock] = useState('');
+    const [editingId, setEditingId] = useState(null);
+    const [editFields, setEditFields] = useState({ title: '', author: '', publisher: '', year_publish: '', stock: '' });
 
     useEffect(() => {
         fetchBooks();
@@ -29,6 +31,44 @@ export default function Index() {
         setYearPublish('');
         setStock('');
         fetchBooks();
+    };
+
+    const startEdit = (book) => {
+        setEditingId(book.id);
+        setEditFields({
+            title: book.title ?? '',
+            author: book.author ?? '',
+            publisher: book.publisher ?? '',
+            year_publish: book.year_publish ?? '',
+            stock: book.stock ?? '',
+        });
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditFields({ title: '', author: '', publisher: '', year_publish: '', stock: '' });
+    };
+
+    const saveEdit = async (id) => {
+        try {
+            await axios.put(`/api/books/${id}`, editFields);
+            cancelEdit();
+            fetchBooks();
+        } catch (e) {
+            console.error(e);
+            alert('Failed to update book');
+        }
+    };
+
+    const deleteBook = async (id) => {
+        if (!confirm('Delete this book?')) return;
+        try {
+            await axios.delete(`/api/books/${id}`);
+            fetchBooks();
+        } catch (e) {
+            console.error(e);
+            alert('Failed to delete book');
+        }
     };
 
     return (
@@ -62,11 +102,39 @@ export default function Index() {
                         ) : (
                             books.map((b) => (
                                 <div key={b.id} className="grid grid-cols-5 gap-4 items-center py-2 border-b text-sm">
-                                    <div className="truncate">{b.title}</div>
-                                    <div className="truncate">{b.author}</div>
-                                    <div className="truncate">{b.publisher}</div>
-                                    <div>{b.year_publish}</div>
-                                    <div>{b.stock}</div>
+                                    {editingId === b.id ? (
+                                        <>
+                                            <div>
+                                                <input className="w-full border p-1 text-sm" value={editFields.title} onChange={(e)=>setEditFields({...editFields, title: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <input className="w-full border p-1 text-sm" value={editFields.author} onChange={(e)=>setEditFields({...editFields, author: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <input className="w-full border p-1 text-sm" value={editFields.publisher} onChange={(e)=>setEditFields({...editFields, publisher: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <input className="w-full border p-1 text-sm" type="number" value={editFields.year_publish} onChange={(e)=>setEditFields({...editFields, year_publish: e.target.value})} />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <input className="w-20 border p-1 text-sm" type="number" value={editFields.stock} onChange={(e)=>setEditFields({...editFields, stock: e.target.value})} />
+                                                <button type="button" onClick={()=>saveEdit(b.id)} className="px-2 py-1 bg-green-500 text-white rounded text-sm">Save</button>
+                                                <button type="button" onClick={cancelEdit} className="px-2 py-1 bg-gray-300 text-gray-800 rounded text-sm">Cancel</button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="truncate">{b.title}</div>
+                                            <div className="truncate">{b.author}</div>
+                                            <div className="truncate">{b.publisher}</div>
+                                            <div>{b.year_publish}</div>
+                                            <div className="flex items-center gap-2">
+                                                <div>{b.stock}</div>
+                                                <button type="button" onClick={()=>startEdit(b)} className="px-2 py-1 bg-yellow-300 text-gray-800 rounded text-sm">Edit</button>
+                                                <button type="button" onClick={()=>deleteBook(b.id)} className="px-2 py-1 bg-red-500 text-white rounded text-sm">Delete</button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             ))
                         )}

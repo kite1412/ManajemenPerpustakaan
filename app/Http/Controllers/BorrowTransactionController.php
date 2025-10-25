@@ -91,7 +91,7 @@ class BorrowTransactionController extends Controller
     public function show($id)
     {
         try {
-            $transaction = BorrowTransaction::with(['user', 'bookCopy'])->find($id);
+            $transaction = BorrowTransaction::with(['users', 'book_copies'])->find($id);
 
             if (! $transaction) {
                 return response()->json([

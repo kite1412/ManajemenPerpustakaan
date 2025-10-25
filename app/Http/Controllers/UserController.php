@@ -19,7 +19,7 @@ class UserController extends Controller
     }
 
     public function getAdmin(){
-        $admin = UserModel::where('role', 'ADMIN');
+        $admin = UserModel::where('role', 'ADMIN')->get();
         return response()->json([
             'success' => true,
             'statusCode' => '200',

@@ -143,8 +143,12 @@ class BookLostController extends Controller
             }
 
             $validated = $request->validate([
-                'status' => ['required', Rule::in(['PENDING', 'VERIFIED', 'REJECTED'])],
-                'verified_by' => 'nullable|integer|exists:users,id'
+                'report_status' => ['required', Rule::in(['REPORTED', 'VERIFIED', 'PAID'])],
+                'verified_by' => [
+                    'nullable',
+                    'integer',
+                    Rule::exists('users', 'id')->where('role', 'ADMIN'),
+                ],
             ]);
 
             $report->update($validated);

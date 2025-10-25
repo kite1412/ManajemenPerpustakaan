@@ -19,6 +19,7 @@ Route::post('/register', [UserController::class, 'register']);
 // Also accept POST /users for registration (RESTful)
 Route::post('/users', [UserController::class, 'register']);
 Route::get('/members', [UserController::class, 'getMember']);
+Route::get('/admins', [UserController::class, 'getAdmin']);
 Route::post('/login', [UserController::class, 'login']);
 // Logout protected
 Route::post('/logout', [UserController::class, 'logout'])->middleware('auth:sanctum');

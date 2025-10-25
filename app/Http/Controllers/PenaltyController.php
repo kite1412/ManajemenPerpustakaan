@@ -128,7 +128,7 @@ class PenaltyController extends Controller
     public function show($id)
     {
         try {
-            $penalty = Penalty::with(['transaction.bookCopy', 'transaction.user'])->find($id);
+            $penalty = Penalty::find($id);
 
             if (! $penalty) {
                 return response()->json([
